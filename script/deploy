@@ -1,0 +1,76 @@
+#!/usr/bin/env ruby
+require 'pathname'
+require 'colorize'
+
+def compile_and_deploy
+  if local_changes?
+    puts "You have local changes. Better check them in first."
+    exit 1
+  end
+
+  dist_branch = "deploy_#{('a'..'z').to_a.shuffle.slice(0, 8).join}"
+  create_and_checkout_branch( dist_branch ) do
+
+    path_to_client = (
+      Pathname.new(__FILE__).dirname + '..' + 'client'
+    ).realpath
+
+    Dir.chdir path_to_client do
+      compile
+      commit_compiled_code './dist'
+    end
+
+    heroku_remote = 'heroku'
+    heroku_remote_branch = 'master'
+    deploy( dist_branch, heroku_remote, heroku_remote_branch )
+  end
+end
+
+def command(desc, *args)
+  puts desc
+  puts
+  unless system(*args)
+    $stderr.puts "Something went wrong"
+    exit 1
+  end
+  puts
+end
+
+def create_and_checkout_branch( branch )
+  original_branch = `git rev-parse --abbrev-ref HEAD`
+
+  command "Checking out ".green + branch.light_blue, %(
+    git checkout -b #{branch}
+  )
+
+  yield
+
+  command "Returning to ".green + original_branch.light_blue, %(
+    git checkout #{original_branch}
+  )
+end
+
+def compile
+  command "Compiling client code".green, %(
+    gulp
+  )
+end
+
+def commit_compiled_code path_to_compiled_code
+  command "Committing compiled client code to repo".green, %(
+    git add -f #{path_to_compiled_code} &&
+    git commit -m "Added compiled stuff"
+  )
+end
+
+def local_changes?
+  not system "git diff --no-ext-diff --quiet --exit-code"
+end
+
+def deploy( local_branch, remote, remote_branch )
+  command "Deploying to Heroku...".green, %(
+    git push -f #{remote} #{local_branch}:#{remote_branch}
+  )
+end
+
+compile_and_deploy *ARGV
