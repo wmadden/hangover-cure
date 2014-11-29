@@ -21,6 +21,9 @@ boot(app, __dirname);
 //   var path = require('path');
 //   app.use(loopback.static(path.resolve(__dirname, '../client')));
 
+var path = require('path');
+app.use(loopback.static(path.resolve(__dirname, '../client/dist')));
+
 // Requests that get this far won't be handled
 // by any middleware. Convert them into a 404 error
 // that will be handled later down the chain.
